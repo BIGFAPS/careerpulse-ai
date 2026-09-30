@@ -11,6 +11,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { updateProfile } from "firebase/auth";
 import { updateUserProfile } from "@/lib/users";
+import { PendingPaymentsCheck } from "@/components/pending-payments";
 import { logOut } from "@/lib/firebase";
 import { effectivePlan, planLabel } from "@/lib/plans";
 import { formatDate } from "@/lib/history";
@@ -71,6 +72,7 @@ export default function ProfilePage() {
 
   return (
     <div className="container max-w-4xl mx-auto px-4 py-8 space-y-6 bg-slate-50 min-h-[calc(100vh-3.5rem)] pb-24">
+      <PendingPaymentsCheck />
       <div className="mb-4 shrink-0">
         <h1 className="text-2xl font-bold tracking-tight text-slate-800">Profile Settings</h1>
         <p className="text-xs text-slate-500">Manage your account and career preferences.</p>

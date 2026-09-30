@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { CheckoutDialog } from "@/components/checkout-dialog";
+import { PendingPaymentsCheck } from "@/components/pending-payments";
 import { PaidPlan, effectivePlan, planLabel } from "@/lib/plans";
 import { formatDate } from "@/lib/history";
 
@@ -31,6 +32,7 @@ export default function PricingPage() {
 
   return (
     <div className="container max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-16 bg-slate-50 min-h-[calc(100vh-3.5rem)] pb-24">
+      <PendingPaymentsCheck />
       <div className="text-center max-w-2xl mx-auto mb-10">
         <h1 className="text-3xl font-bold tracking-tight text-slate-800 sm:text-4xl mb-2">Membership Plans</h1>
         <p className="text-xs text-slate-500 mb-6">

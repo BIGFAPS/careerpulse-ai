@@ -32,10 +32,12 @@ export async function syncPayment(reference: string): Promise<{
   let tx: CampayTransaction;
   try {
     tx = await getTransaction(reference);
-  } catch {
+  } catch (error: any) {
+    console.error("Campay status check failed", reference, error?.message);
     return { status: "PENDING", payment };
   }
   const status = normalizeStatus(tx.status);
+  console.log("Campay status", reference, tx.status, tx.reason || "");
   const now = new Date();
 
   if (status === "PENDING") return { status, payment };

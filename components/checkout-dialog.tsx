@@ -189,7 +189,7 @@ export function CheckoutDialog({
                   No prompt? Dial <b className="font-mono">{ussd}</b> to approve it.
                 </p>
               )}
-              <p className="text-[10px] text-slate-400">This window updates automatically.</p>
+              <p className="text-[10px] text-slate-400">This window updates automatically. If you close it, your plan will still be activated once the payment is confirmed.</p>
             </div>
           )}
 

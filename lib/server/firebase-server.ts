@@ -89,7 +89,10 @@ async function accessToken(): Promise<string> {
     cache: "no-store",
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.access_token) throw new HttpError("Server could not access the database.", 500);
+  if (!res.ok || !data.access_token) {
+    console.error("Service account token failed", res.status, data?.error, data?.error_description);
+    throw new HttpError("Server could not access the database.", 500);
+  }
   cachedAccess = { token: data.access_token, expiresAt: Date.now() + (data.expires_in || 3600) * 1000 };
   return data.access_token;
 }
@@ -147,7 +150,10 @@ export async function getDocument(path: string): Promise<StoredDoc | null> {
   });
   if (res.status === 404) return null;
   const data = await res.json();
-  if (!res.ok) throw new HttpError("Database read failed.", 500);
+  if (!res.ok) {
+    console.error("Firestore read failed", res.status, data?.error?.message);
+    throw new HttpError("Database read failed.", 500);
+  }
   return { data: decodeFields(data.fields || {}), updateTime: data.updateTime };
 }
 
@@ -182,6 +188,7 @@ export async function commit(writes: Write[]): Promise<boolean> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     if (err?.error?.status === "FAILED_PRECONDITION" || err?.error?.status === "ABORTED") return false;
+    console.error("Firestore commit failed", res.status, err?.error?.message);
     throw new HttpError("Database write failed.", 500);
   }
   return true;
