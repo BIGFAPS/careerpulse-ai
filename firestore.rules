@@ -1,0 +1,85 @@
+rules_version = '2';
+
+// Career Pulse AI – Firestore security rules (role-based access)
+// Publish these in Firebase console > Firestore Database > Rules
+// (project careerpulse-ai-490e5, database "(default)").
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function notBlocked() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return !exists(path) ||
+        (get(path).data.get('blocked', false) == false &&
+         get(path).data.get('deleted', false) == false);
+    }
+    // One-time creation of the first administrator (see lib/admin.ts).
+    function validBootstrapProof() {
+      return hashing.sha256(request.resource.data.proof).toHexString().lower() ==
+        'ed0f8d84f8581cf157669389399020103005eeff1ccb401b8d63b412a46b3df3';
+    }
+
+    // Candidate profile: role, plan and blocked status can only be changed by an admin
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAdmin() || (isOwner(uid)
+        && request.resource.data.get('role', 'candidate') == 'candidate'
+        && request.resource.data.get('plan', 'free') == 'free'
+        && request.resource.data.get('blocked', false) == false
+        && request.resource.data.get('deleted', false) == false);
+      allow update: if isAdmin() || (isOwner(uid) && notBlocked()
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['role', 'plan', 'blocked', 'deleted', 'deletedAt']));
+      allow delete: if isAdmin();
+
+      // Resume analyses and interview sessions (history)
+      match /{collectionName}/{docId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if (isOwner(uid) && notBlocked()) || isAdmin();
+      }
+    }
+
+    // Dashboard statistics
+    match /userStats/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if (isOwner(uid) && notBlocked()) || isAdmin();
+    }
+
+    // Administrators (document id = Firebase Auth uid)
+    match /admins/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAdmin() || (isOwner(uid)
+        && !exists(/databases/$(database)/documents/config/adminBootstrap)
+        && existsAfter(/databases/$(database)/documents/config/adminBootstrap));
+      allow update, delete: if isAdmin();
+    }
+
+    match /config/adminBootstrap {
+      allow read: if isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && validBootstrapProof()
+        && existsAfter(/databases/$(database)/documents/admins/$(request.auth.uid));
+      allow update, delete: if false;
+    }
+
+    // Job description library and interview parameters (managed by admins)
+    match /jobDescriptions/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /settings/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Career Pulse AI",
+  "description": "An AI resume analyzer and interview coach that helps users optimize their resumes and practice interview skills.",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": []
+}
