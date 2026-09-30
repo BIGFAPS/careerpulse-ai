@@ -27,6 +27,7 @@ import {
   Search,
   Video,
   Mail,
+  CreditCard,
 } from "lucide-react";
 import {
   AdminEntry,
@@ -38,6 +39,8 @@ import {
   grantAdmin,
   isAdmin,
   loadAdmins,
+  loadPayments,
+  PaymentRow,
   loadUsers,
   revokeAdmin,
   setUserBlocked,
@@ -57,7 +60,7 @@ import {
 } from "@/lib/platform";
 import { formatDate } from "@/lib/history";
 
-type Tab = "users" | "jobs" | "settings" | "admins";
+type Tab = "users" | "payments" | "jobs" | "settings" | "admins";
 
 export default function AdminPage() {
   const [checking, setChecking] = useState(true);
@@ -190,6 +193,7 @@ function AdminDashboard({ adminUid, onLogout }: { adminUid: string; onLogout: ()
   const [admins, setAdmins] = useState<AdminEntry[]>([]);
   const [jobs, setJobs] = useState<JobDescription[]>([]);
   const [settings, setSettings] = useState<InterviewSettings>(DEFAULT_INTERVIEW_SETTINGS);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -201,6 +205,7 @@ function AdminDashboard({ adminUid, onLogout }: { adminUid: string; onLogout: ()
       setUsers(u);
       setJobs(await listJobDescriptions());
       setSettings(await getInterviewSettings());
+      setPayments(await loadPayments().catch(() => []));
     } catch (e) {
       console.error(e);
       setError(
@@ -223,15 +228,19 @@ function AdminDashboard({ adminUid, onLogout }: { adminUid: string; onLogout: ()
       resumes: active.reduce((a, u) => a + u.resumesAnalyzed, 0),
       interviews: active.reduce((a, u) => a + u.interviewsCompleted, 0),
       letters: active.reduce((a, u) => a + u.coverLettersGenerated, 0),
+      revenue: payments
+        .filter((p) => p.status === "SUCCESSFUL")
+        .reduce((a, p) => a + (Number(p.chargedAmount) || 0), 0),
       avgPrep: active.length
         ? Math.round(active.reduce((a, u) => a + u.preparednessScore, 0) / active.length)
         : 0,
     }),
-    [active],
+    [active, payments],
   );
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "users", label: "Users", icon: <Users className="w-3.5 h-3.5" /> },
+    { id: "payments", label: "Payments", icon: <CreditCard className="w-3.5 h-3.5" /> },
     { id: "jobs", label: "Job descriptions", icon: <Briefcase className="w-3.5 h-3.5" /> },
     { id: "settings", label: "Interview settings", icon: <SlidersHorizontal className="w-3.5 h-3.5" /> },
     { id: "admins", label: "Admins & security", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
@@ -261,11 +270,12 @@ function AdminDashboard({ adminUid, onLogout }: { adminUid: string; onLogout: ()
           <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-md p-3">{error}</div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <StatCard icon={<Users className="w-4 h-4" />} label="Users" value={totals.users} hint={`${totals.blocked} blocked`} />
           <StatCard icon={<FileText className="w-4 h-4" />} label="Resumes analysed" value={totals.resumes} />
           <StatCard icon={<Video className="w-4 h-4" />} label="Interviews done" value={totals.interviews} />
           <StatCard icon={<Mail className="w-4 h-4" />} label="Cover letters" value={totals.letters} />
+          <StatCard icon={<CreditCard className="w-4 h-4" />} label="Revenue (XAF)" value={totals.revenue.toLocaleString("fr-FR")} hint={`${payments.filter((p) => p.status === "SUCCESSFUL").length} paid`} />
           <StatCard icon={<Activity className="w-4 h-4" />} label="Avg. preparedness" value={`${totals.avgPrep}%`} />
         </div>
 
@@ -283,6 +293,7 @@ function AdminDashboard({ adminUid, onLogout }: { adminUid: string; onLogout: ()
         </div>
 
         {tab === "users" && <UsersPanel users={users} onChange={refresh} />}
+        {tab === "payments" && <PaymentsPanel payments={payments} />}
         {tab === "jobs" && <JobsPanel jobs={jobs} onChange={refresh} />}
         {tab === "settings" && <SettingsPanel initial={settings} />}
         {tab === "admins" && (
@@ -748,5 +759,56 @@ function AdminsPanel({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function PaymentsPanel({ payments }: { payments: PaymentRow[] }) {
+  const style: Record<string, string> = {
+    SUCCESSFUL: "bg-emerald-100 text-emerald-700",
+    PENDING: "bg-blue-100 text-blue-700",
+    FAILED: "bg-red-100 text-red-700",
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Mobile Money payments (Campay)</CardTitle>
+        <CardDescription>Plan purchases made with MTN Mobile Money and Orange Money.</CardDescription>
+      </CardHeader>
+      <CardContent className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-left text-[10px] uppercase tracking-wider text-slate-400 border-b">
+              <th className="py-2 pr-3">Date</th>
+              <th className="py-2 pr-3">User</th>
+              <th className="py-2 pr-3">Plan</th>
+              <th className="py-2 pr-3">Amount</th>
+              <th className="py-2 pr-3">Operator</th>
+              <th className="py-2 pr-3">Status</th>
+              <th className="py-2">Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            {payments.map((p) => (
+              <tr key={p.id} className="border-b last:border-0">
+                <td className="py-2 pr-3 text-slate-500">{formatDate(p.createdAt)}</td>
+                <td className="py-2 pr-3">{p.email || "—"}<div className="text-slate-400">{p.phone}</div></td>
+                <td className="py-2 pr-3">{p.plan === "elite" ? "Elite Prep" : "Career Pro"} · {p.billing}</td>
+                <td className="py-2 pr-3 font-semibold">{Number(p.chargedAmount || 0).toLocaleString("fr-FR")} XAF</td>
+                <td className="py-2 pr-3">{p.operator || "—"}</td>
+                <td className="py-2 pr-3">
+                  <span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase ${style[p.status] || ""}`}>{p.status}</span>
+                </td>
+                <td className="py-2 font-mono text-[10px] text-slate-500">{p.id.slice(0, 13)}…</td>
+              </tr>
+            ))}
+            {payments.length === 0 && (
+              <tr>
+                <td colSpan={7} className="py-6 text-center text-slate-500">No payments yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
   );
 }

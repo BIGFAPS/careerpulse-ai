@@ -4,12 +4,29 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth-provider";
+import { CheckoutDialog } from "@/components/checkout-dialog";
+import { PaidPlan, effectivePlan, planLabel } from "@/lib/plans";
+import { formatDate } from "@/lib/history";
 
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState<PaidPlan | null>(null);
+  const { user, profile, refreshProfile } = useAuth();
+  const router = useRouter();
+  const currentPlan = effectivePlan(profile?.plan, profile?.planExpiresAt);
 
   const handleCheckout = (planName: string) => {
-    alert(`Checkout for ${planName} plan is not implemented in this demo.`);
+    if (planName === "Essential") {
+      router.push(user ? "/dashboard" : "/signup");
+      return;
+    }
+    if (!user) {
+      router.push("/login?next=/pricing");
+      return;
+    }
+    setCheckoutPlan(planName === "Career Pro" ? "pro" : "elite");
   };
 
   return (
@@ -18,7 +35,16 @@ export default function PricingPage() {
         <h1 className="text-3xl font-bold tracking-tight text-slate-800 sm:text-4xl mb-2">Membership Plans</h1>
         <p className="text-xs text-slate-500 mb-6">
           Invest in your career with plans that scale to your needs. Prices are in XAF.
+          Pay securely with MTN Mobile Money or Orange Money.
         </p>
+        {user && (
+          <p className="text-[11px] text-slate-600 mb-4">
+            Your current plan: <b>{planLabel(currentPlan)}</b>
+            {currentPlan !== "free" && profile?.planExpiresAt
+              ? ` (active until ${formatDate(profile.planExpiresAt)})`
+              : ""}
+          </p>
+        )}
 
         <div className="inline-flex items-center justify-center p-1 bg-white border border-slate-200 rounded-lg shadow-sm relative">
           <button 
@@ -151,6 +177,15 @@ export default function PricingPage() {
           </CardFooter>
         </Card>
       </div>
+
+      {checkoutPlan && (
+        <CheckoutDialog
+          plan={checkoutPlan}
+          billing={isAnnual ? "annual" : "monthly"}
+          onClose={() => setCheckoutPlan(null)}
+          onPaid={refreshProfile}
+        />
+      )}
     </div>
   );
 }

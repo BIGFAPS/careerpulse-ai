@@ -12,6 +12,8 @@ import Link from "next/link";
 import { updateProfile } from "firebase/auth";
 import { updateUserProfile } from "@/lib/users";
 import { logOut } from "@/lib/firebase";
+import { effectivePlan, planLabel } from "@/lib/plans";
+import { formatDate } from "@/lib/history";
 
 export default function ProfilePage() {
   const { user, profile, loading, refreshProfile } = useAuth();
@@ -39,7 +41,7 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
-  const plan = profile?.plan || "free";
+  const plan = effectivePlan(profile?.plan, profile?.planExpiresAt);
 
   const handleSave = async () => {
     setSaving(true);
@@ -93,8 +95,16 @@ export default function ProfilePage() {
                <h2 className="text-lg font-bold text-slate-800">{user.displayName || "User"}</h2>
                <p className="text-xs text-slate-500 mb-4">{user.email}</p>
                <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
-                 {plan === "free" ? "Free Tier" : plan === "pro" ? "Career Pro" : "Elite Prep"}
+                 {planLabel(plan)}
                </span>
+               {plan !== "free" && profile?.planExpiresAt && (
+                 <p className="text-[10px] text-slate-500 mt-1">
+                   Active until {formatDate(profile.planExpiresAt)}
+                 </p>
+               )}
+               <Link href="/pricing" className="text-[11px] font-semibold text-blue-600 mt-2">
+                 {plan === "free" ? "Upgrade my plan" : "Renew or change plan"}
+               </Link>
                <div className="flex flex-col gap-2 w-full mt-5">
                  <Link href="/history">
                    <Button variant="outline" className="w-full h-8 text-xs font-bold">

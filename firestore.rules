@@ -38,7 +38,8 @@ service cloud.firestore {
         && request.resource.data.get('deleted', false) == false);
       allow update: if isAdmin() || (isOwner(uid) && notBlocked()
         && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['role', 'plan', 'blocked', 'deleted', 'deletedAt']));
+            .hasAny(['role', 'plan', 'planBilling', 'planExpiresAt', 'planUpdatedAt',
+                     'lastPaymentRef', 'blocked', 'deleted', 'deletedAt']));
       allow delete: if isAdmin();
 
       // Resume analyses and interview sessions (history)
@@ -70,6 +71,12 @@ service cloud.firestore {
         && validBootstrapProof()
         && existsAfter(/databases/$(database)/documents/admins/$(request.auth.uid));
       allow update, delete: if false;
+    }
+
+    // Mobile Money payments (written only by the server with the service account)
+    match /payments/{reference} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow write: if false;
     }
 
     // Job description library and interview parameters (managed by admins)

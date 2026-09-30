@@ -199,7 +199,8 @@ export async function setUserBlocked(uid: string, blocked: boolean) {
 }
 
 export async function setUserPlan(uid: string, plan: string) {
-  await setDoc(doc(db, "users", uid), { plan }, { merge: true });
+  // Set manually by an admin: no end date
+  await setDoc(doc(db, "users", uid), { plan, planExpiresAt: null }, { merge: true });
 }
 
 /** Deletes all of a user's data and permanently disables the account. */
@@ -236,4 +237,23 @@ export async function revokeAdmin(uid: string) {
 
 export async function touchAdmin(uid: string) {
   await updateDoc(doc(db, "admins", uid), { lastLogin: serverTimestamp() }).catch(() => {});
+}
+
+export interface PaymentRow {
+  id: string;
+  email: string;
+  plan: string;
+  billing: string;
+  chargedAmount: number;
+  status: string;
+  operator: string;
+  phone: string;
+  createdAt?: any;
+}
+
+export async function loadPayments(): Promise<PaymentRow[]> {
+  const snap = await getDocs(collection(db, "payments"));
+  return snap.docs
+    .map((d) => ({ ...(d.data() as any), id: d.id }))
+    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 }

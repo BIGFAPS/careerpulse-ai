@@ -10,6 +10,8 @@ export interface UserProfile {
   targetRole?: string;
   role: "candidate";
   plan: "free" | "pro" | "elite";
+  planBilling?: "monthly" | "annual";
+  planExpiresAt?: any;
   blocked: boolean;
   deleted?: boolean;
   createdAt?: any;
